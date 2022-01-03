@@ -1,4 +1,4 @@
-# **MachineLearningAndroid**
+# **Machine Learning Models Android App**
 
 This is an android app created to showcase and test the models that I have created from the project: https://github.com/MichaelShep/SegmentationRecognitionCNN
 
