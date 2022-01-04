@@ -7,9 +7,9 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import org.pytorch.IValue;
 import org.pytorch.LiteModuleLoader;
@@ -22,16 +22,19 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
-    public static final int CLASSNUM = 21;
-    public static final int DOG = 12;
-    public static final int PERSON = 15;
-    public static final int SHEEP = 17;
+    public static final int PIXELS_IN_IMAGE = 512 * 512;
+    public static final float THRESHOLD = 0.8f;
+    public static final int NUM_OUTPUT_MASKS = 18;
+    public static final String[] MASK_NAMES = new String[] {
+            "Skin", "Nose", "Glasses", "Left Eye", "Right Eye", "Left Brow", "Right Brow", "Left Ear", "Right Ear",
+            "Mouth", "Upper Lip", "Lower Lip", "Hair", "Hat", "Ear Ring", "Neck Lower", "Neck", "Cloth"
+    };
 
     private Bitmap inputImageBitmap = null;
-    private Bitmap outputSegmentationMask = null;
+    private int[] imageOutputs;
+    private int currentMaskIndex = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,8 +45,8 @@ public class MainActivity extends AppCompatActivity {
         Module module = null;
         try {
             module = LiteModuleLoader.load(assetFilePath(this,
-                    "deeplabv3_scripted.ptl"));
-            inputImageBitmap = BitmapFactory.decodeStream(getAssets().open("deeplab.jpg"));
+                    "TestModel.ptl"));
+            inputImageBitmap = BitmapFactory.decodeStream(getAssets().open("testImage.jpg"));
         } catch (IOException e) {
             Log.e("MachineLearning", "Error loading Assets", e);
             finish();
@@ -57,67 +60,56 @@ public class MainActivity extends AppCompatActivity {
         final Tensor inputTensor = TensorImageUtils.bitmapToFloat32Tensor(inputImageBitmap,
                 TensorImageUtils.TORCHVISION_NORM_MEAN_RGB,
                 TensorImageUtils.TORCHVISION_NORM_STD_RGB);
-        final float[] inputs = inputTensor.getDataAsFloatArray();
 
         //Perform forward pass through the network
-        Map<String, IValue> outTensors = module.forward(IValue.from(inputTensor)).toDictStringKey();
+        final Tensor outTensor = module.forward(IValue.from(inputTensor)).toTensor();
 
-        //Get the output data from the model
-        final Tensor outputTensor = outTensors.get("out").toTensor();
-        final float[] outputs = outputTensor.getDataAsFloatArray();
-
-        int width = inputImageBitmap.getWidth();
-        int height = inputImageBitmap.getHeight();
-
-        //Convert the output data into the correct image data for the segmentation
-        int[] intValues = new int[width * height];
-        for (int j = 0; j < width; j++) {
-            for (int k = 0; k < height; k++) {
-                int maxi = 0, maxj = 0, maxk = 0;
-                double maxnum = -100000.0;
-
-                //Perform input processing for each pixel
-                for (int i= 0; i < CLASSNUM; i++) {
-                    if (outputs[i*(width*height) + j*width + k] > maxnum) {
-                        maxnum = outputs[i*(width*height) + j*width + k];
-                        maxi = i; maxj = j; maxk = k;
-                    }
-                }
-
-                //Work out what colour each pixel should be based on processing
-                if (maxi == PERSON) {
-                    intValues[maxj*width + maxk] = 0xFFFF000;
-                } else if(maxi == DOG) {
-                    intValues[maxj*width + maxk] = 0xFF00FF00;
-                } else if(maxi == SHEEP) {
-                    intValues[maxj*width + maxk] = 0xFF0000FF;
-                } else {
-                    intValues[maxj*width + maxk] = 0xFF000000;
-                }
+        //Process output into correct image format
+        final float[] outputValues = outTensor.getDataAsFloatArray();
+        imageOutputs = new int[outputValues.length];
+        for (int i = 0; i < outputValues.length; i++) {
+            if (outputValues[i] > THRESHOLD) {
+                //Log.println(Log.ERROR, "Loading Image", "Found input that passed threshold");
+                imageOutputs[i] = 0xFFFFFFFF;
+            } else {
+                imageOutputs[i] = 0xFF0000FF;
             }
         }
-
-        //Convert the image segmentation information into an actual image
-        Bitmap bmpSegmentation = Bitmap.createScaledBitmap(inputImageBitmap, width, height, true);
-        outputSegmentationMask = bmpSegmentation.copy(bmpSegmentation.getConfig(), true);
-        outputSegmentationMask.setPixels(intValues, 0, outputSegmentationMask.getWidth(),
-                0, 0, outputSegmentationMask.getWidth(), outputSegmentationMask.getHeight());
 
         //Add functionality to the restart and segment buttons
         final Button restartButton = findViewById(R.id.restartButton);
         final Button segmentButton = findViewById(R.id.segmentButton);
+        final TextView imageNameText = findViewById(R.id.imageName);
 
-        restartButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                imageView.setImageBitmap(inputImageBitmap);
-            }
+        restartButton.setOnClickListener(v -> {
+            imageView.setImageBitmap(inputImageBitmap);
+            currentMaskIndex = 0;
         });
 
-        segmentButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                imageView.setImageBitmap(outputSegmentationMask);
+        segmentButton.setOnClickListener(v -> {
+            imageView.setImageBitmap(getSegmentationMask());
+            segmentButton.setText(getString(R.string.view_next));
+            imageNameText.setText("Viewing Mask: " + MASK_NAMES[currentMaskIndex]);
+            currentMaskIndex++;
+            if(currentMaskIndex == NUM_OUTPUT_MASKS) {
+                currentMaskIndex = 0;
             }
         });
+    }
+
+    //Gets one of the output masks for the input image based on the current mask index variable
+    private Bitmap getSegmentationMask() {
+        if (currentMaskIndex >= NUM_OUTPUT_MASKS) {
+            return null;
+        }
+
+        //Get the output mask at the current index
+        Bitmap bmpSegmentation = Bitmap.createScaledBitmap(inputImageBitmap, inputImageBitmap.getWidth(), inputImageBitmap.getHeight(), true);
+        Bitmap outputSegmentationMask = bmpSegmentation.copy(bmpSegmentation.getConfig(), true);
+        outputSegmentationMask.setPixels(imageOutputs, PIXELS_IN_IMAGE * currentMaskIndex, outputSegmentationMask.getWidth(),
+                0, 0, outputSegmentationMask.getWidth(), outputSegmentationMask.getHeight());
+
+        return outputSegmentationMask;
     }
 
     //Creates a new file in the /files app directory and copies all the data from our asset into it

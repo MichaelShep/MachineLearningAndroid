@@ -2,6 +2,8 @@
     <string name="app_name">MachineLearningAppAndroid</string>
     <string name="image_view">Image View</string>
     <string name="segment">Segment</string>
+    <string name="view_next">View Next Mask</string>
     <string name="run_model">Running the model...</string>
     <string name="restart">Restart</string>
+    <string name="input_image">Input Image</string>
 </resources>
