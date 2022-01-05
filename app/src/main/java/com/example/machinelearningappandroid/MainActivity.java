@@ -5,7 +5,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -30,6 +32,7 @@ import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity {
     public static final int PIXELS_IN_IMAGE = 512 * 512;
+    public static final String APP_TAG = "MachineLearningApp";
     public static final float THRESHOLD = 0.8f;
     public static final int NUM_OUTPUT_MASKS = 18;
     public static final String[] MASK_NAMES = new String[] {
@@ -48,13 +51,23 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         setTitle("Run Segmentation Model");
 
+        //Get the file name of the image saved in the CameraView
+        Bundle extras = getIntent().getExtras();
+        String imageUri = "";
+        if (extras != null) {
+            imageUri = extras.getString("imageUri");
+        }else {
+            Log.e(APP_TAG, "No image passed to activity");
+            finish();
+        }
+
         //Load PyTorch Model into Module and input image as bitmap
         try {
             module = LiteModuleLoader.load(assetFilePath(this,
                     "segmentation_model.ptl"));
-            inputImageBitmap = BitmapFactory.decodeStream(getAssets().open("testImage.jpg"));
+            inputImageBitmap = BitmapFactory.decodeStream(getContentResolver().openInputStream(Uri.parse(imageUri)));
         } catch (IOException e) {
-            Log.e("MachineLearning", "Error loading Assets", e);
+            Log.e(APP_TAG, "Error loading Assets", e);
             finish();
         }
 

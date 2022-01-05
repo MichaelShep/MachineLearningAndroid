@@ -121,6 +121,7 @@ public class CameraActivity extends AppCompatActivity {
                 String message = "Photo Capture Succeeded: " + fileName + ".jpeg";
                 Toast.makeText(getBaseContext(), message, Toast.LENGTH_SHORT).show();
                 Intent intent = new Intent(CameraActivity.this, MainActivity.class);
+                intent.putExtra("imageUri", outputFileResults.getSavedUri().toString());
                 startActivity(intent);
             }
 

@@ -25,8 +25,8 @@ public class SelectionActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
-        attributesSelectionButton.setOnClickListener(v -> Log.println(Log.INFO, "MachineLearningApp", "Attributes Model Selected"));
+        attributesSelectionButton.setOnClickListener(v -> Log.println(Log.INFO, MainActivity.APP_TAG, "Attributes Model Selected"));
 
-        jointSelectionButton.setOnClickListener(v -> Log.println(Log.INFO, "MachineLearningApp", "Joint Model Selected"));
+        jointSelectionButton.setOnClickListener(v -> Log.println(Log.INFO, MainActivity.APP_TAG, "Joint Model Selected"));
     }
 }
