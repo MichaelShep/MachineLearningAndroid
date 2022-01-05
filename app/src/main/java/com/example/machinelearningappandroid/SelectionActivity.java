@@ -13,6 +13,7 @@ public class SelectionActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_selection);
+        setTitle("Select Machine Learning Model");
 
         Button segmentationSelectionButton = findViewById(R.id.segmentation_selection_button);
         Button attributesSelectionButton = findViewById(R.id.attributes_selection_button);

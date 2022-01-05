@@ -15,6 +15,7 @@ import androidx.lifecycle.LifecycleOwner;
 
 import android.Manifest;
 import android.content.ContentValues;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
@@ -44,6 +45,7 @@ public class CameraActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera);
+        setTitle("Take Photo of Face");
 
         cameraProviderFuture = ProcessCameraProvider.getInstance(this);
 
@@ -118,6 +120,8 @@ public class CameraActivity extends AppCompatActivity {
             public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
                 String message = "Photo Capture Succeeded: " + fileName + ".jpeg";
                 Toast.makeText(getBaseContext(), message, Toast.LENGTH_SHORT).show();
+                Intent intent = new Intent(CameraActivity.this, MainActivity.class);
+                startActivity(intent);
             }
 
             @Override

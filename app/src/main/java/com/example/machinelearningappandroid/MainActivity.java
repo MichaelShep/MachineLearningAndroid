@@ -6,10 +6,13 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import org.pytorch.IValue;
 import org.pytorch.LiteModuleLoader;
@@ -22,6 +25,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity {
     public static final int PIXELS_IN_IMAGE = 512 * 512;
@@ -33,6 +38,7 @@ public class MainActivity extends AppCompatActivity {
     };
 
     private Bitmap inputImageBitmap = null;
+    private Module module = null;
     private int[] imageOutputs;
     private int currentMaskIndex = 0;
 
@@ -40,12 +46,12 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        setTitle("Run Segmentation Model");
 
         //Load PyTorch Model into Module and input image as bitmap
-        Module module = null;
         try {
             module = LiteModuleLoader.load(assetFilePath(this,
-                    "TestModel.ptl"));
+                    "segmentation_model.ptl"));
             inputImageBitmap = BitmapFactory.decodeStream(getAssets().open("testImage.jpg"));
         } catch (IOException e) {
             Log.e("MachineLearning", "Error loading Assets", e);
@@ -56,6 +62,35 @@ public class MainActivity extends AppCompatActivity {
         ImageView imageView = findViewById(R.id.imageView);
         imageView.setImageBitmap(inputImageBitmap);
 
+        //Add functionality to the restart and segment buttons
+        final Button restartButton = findViewById(R.id.restartButton);
+        final Button segmentButton = findViewById(R.id.segmentButton);
+        final TextView imageNameText = findViewById(R.id.imageName);
+
+        restartButton.setOnClickListener(v -> {
+            segmentButton.setEnabled(true);
+            segmentButton.setText(R.string.segment);
+            imageView.setImageBitmap(inputImageBitmap);
+            currentMaskIndex = 0;
+        });
+
+        segmentButton.setOnClickListener(v -> {
+            if (currentMaskIndex == 0) {
+                Toast.makeText(getBaseContext(), "Performing Segmentation...", Toast.LENGTH_SHORT).show();
+                runSegmentationModel();
+            }
+            imageView.setImageBitmap(getSegmentationMask());
+            segmentButton.setText(getString(R.string.view_next));
+            imageNameText.setText("Viewing Mask: " + MASK_NAMES[currentMaskIndex]);
+            currentMaskIndex++;
+            if(currentMaskIndex == NUM_OUTPUT_MASKS) {
+                segmentButton.setEnabled(false);
+            }
+        });
+    }
+
+    //Runs the segmentation model on the input image
+    private void runSegmentationModel() {
         //Sets up input tensors
         final Tensor inputTensor = TensorImageUtils.bitmapToFloat32Tensor(inputImageBitmap,
                 TensorImageUtils.TORCHVISION_NORM_MEAN_RGB,
@@ -69,32 +104,11 @@ public class MainActivity extends AppCompatActivity {
         imageOutputs = new int[outputValues.length];
         for (int i = 0; i < outputValues.length; i++) {
             if (outputValues[i] > THRESHOLD) {
-                //Log.println(Log.ERROR, "Loading Image", "Found input that passed threshold");
                 imageOutputs[i] = 0xFFFFFFFF;
             } else {
                 imageOutputs[i] = 0xFF0000FF;
             }
         }
-
-        //Add functionality to the restart and segment buttons
-        final Button restartButton = findViewById(R.id.restartButton);
-        final Button segmentButton = findViewById(R.id.segmentButton);
-        final TextView imageNameText = findViewById(R.id.imageName);
-
-        restartButton.setOnClickListener(v -> {
-            imageView.setImageBitmap(inputImageBitmap);
-            currentMaskIndex = 0;
-        });
-
-        segmentButton.setOnClickListener(v -> {
-            imageView.setImageBitmap(getSegmentationMask());
-            segmentButton.setText(getString(R.string.view_next));
-            imageNameText.setText("Viewing Mask: " + MASK_NAMES[currentMaskIndex]);
-            currentMaskIndex++;
-            if(currentMaskIndex == NUM_OUTPUT_MASKS) {
-                currentMaskIndex = 0;
-            }
-        });
     }
 
     //Gets one of the output masks for the input image based on the current mask index variable
