@@ -30,6 +30,8 @@ import java.io.OutputStream;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import javax.crypto.Mac;
+
 public class MainActivity extends AppCompatActivity {
     public static final int PIXELS_IN_IMAGE = 512 * 512;
     public static final String APP_TAG = "MachineLearningApp";
@@ -70,6 +72,8 @@ public class MainActivity extends AppCompatActivity {
             Log.e(APP_TAG, "Error loading Assets", e);
             finish();
         }
+
+        Log.i(APP_TAG, "Image Width: " + inputImageBitmap.getWidth());
 
         //Setup UI Components
         ImageView imageView = findViewById(R.id.imageView);

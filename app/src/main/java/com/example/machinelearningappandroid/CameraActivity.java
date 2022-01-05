@@ -1,5 +1,7 @@
 package com.example.machinelearningappandroid;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
@@ -11,9 +13,9 @@ import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.lifecycle.LifecycleOwner;
 
 import android.Manifest;
+import android.content.ActivityNotFoundException;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -27,7 +29,6 @@ import android.widget.Toast;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
-import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Locale;
 import java.util.concurrent.ExecutionException;
@@ -39,6 +40,8 @@ public class CameraActivity extends AppCompatActivity {
     private ImageCapture imageCapture = null;
     private final int cameraRequestCode = 10;
     private ExecutorService cameraExecutor;
+
+    private ActivityResultLauncher<Intent> cropActivityResultLauncher;
 
     @RequiresApi(api = Build.VERSION_CODES.R)
     @Override
@@ -65,6 +68,19 @@ public class CameraActivity extends AppCompatActivity {
         cameraCaptureButton.setOnClickListener(v -> takePhoto());
 
         cameraExecutor = Executors.newSingleThreadExecutor();
+
+        //Setup code that will be run when the crop intent is finished running
+        cropActivityResultLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == RESULT_OK) {
+                        Intent resultIntent = result.getData();
+                        Intent intent = new Intent(CameraActivity.this, MainActivity.class);
+                        intent.putExtra("imageUri", resultIntent.getDataString());
+                        startActivity(intent);
+                    }
+                }
+        );
     }
 
     @Override
@@ -120,9 +136,8 @@ public class CameraActivity extends AppCompatActivity {
             public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
                 String message = "Photo Capture Succeeded: " + fileName + ".jpeg";
                 Toast.makeText(getBaseContext(), message, Toast.LENGTH_SHORT).show();
-                Intent intent = new Intent(CameraActivity.this, MainActivity.class);
-                intent.putExtra("imageUri", outputFileResults.getSavedUri().toString());
-                startActivity(intent);
+
+                performCrop(outputFileResults.getSavedUri());
             }
 
             @Override
@@ -130,6 +145,23 @@ public class CameraActivity extends AppCompatActivity {
                 Toast.makeText(getBaseContext(), "Image Capture Failed", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    //Crops the image collected from the camera
+    private void performCrop(Uri fileUri) {
+        try {
+            Intent cropIntent = new Intent("com.android.camera.action.CROP");
+            cropIntent.setDataAndType(fileUri, "image/*");
+            cropIntent.putExtra("crop", "true");
+            cropIntent.putExtra("aspectX", 1);
+            cropIntent.putExtra("aspectY", 1);
+            cropIntent.putExtra("outputX", 512);
+            cropIntent.putExtra("outputY", 512);
+            cropIntent.putExtra("return-data", true);
+            cropActivityResultLauncher.launch(cropIntent);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "This device does not support the crop action!", Toast.LENGTH_SHORT).show();
+        }
     }
 
     public void onDestroy() {
