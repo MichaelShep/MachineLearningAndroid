@@ -23,6 +23,8 @@ import org.pytorch.Tensor;
 import org.pytorch.torchvision.TensorImageUtils;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -55,25 +57,25 @@ public class MainActivity extends AppCompatActivity {
 
         //Get the file name of the image saved in the CameraView
         Bundle extras = getIntent().getExtras();
-        String imageUri = "";
+        String imagePath = "";
+        boolean fromNewApi = false;
         if (extras != null) {
-            imageUri = extras.getString("imageUri");
+            imagePath = extras.getString("imagePath");
+            fromNewApi = extras.getBoolean("fromNewApi");
         }else {
             Log.e(APP_TAG, "No image passed to activity");
             finish();
         }
+        inputImageBitmap = loadImageFromStorage(imagePath, fromNewApi);
 
         //Load PyTorch Model into Module and input image as bitmap
         try {
             module = LiteModuleLoader.load(assetFilePath(this,
                     "segmentation_model.ptl"));
-            inputImageBitmap = BitmapFactory.decodeStream(getContentResolver().openInputStream(Uri.parse(imageUri)));
         } catch (IOException e) {
-            Log.e(APP_TAG, "Error loading Assets", e);
+            Log.e(APP_TAG, "Error loading PyTorch module", e);
             finish();
         }
-
-        Log.i(APP_TAG, "Image Width: " + inputImageBitmap.getWidth());
 
         //Setup UI Components
         ImageView imageView = findViewById(R.id.imageView);
@@ -105,6 +107,28 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
+
+    //Loads a saved image from storage
+    private Bitmap loadImageFromStorage(String path, boolean fromNewApi) {
+        try {
+            Bitmap image = null;
+            if (fromNewApi) {
+                InputStream stream = getContentResolver().openInputStream(Uri.parse(path));
+                image = BitmapFactory.decodeStream(stream);
+            } else {
+                File f = new File(path, CameraActivity.SAVED_IMAGE_NAME);
+                image = BitmapFactory.decodeStream(new FileInputStream(f));
+            }
+            return image;
+        } catch (Exception e) {
+            Log.e(APP_TAG, "Error loading image from storage");
+            e.printStackTrace();
+            finish();
+        }
+
+        return null;
+    }
+
 
     //Runs the segmentation model on the input image
     private void runSegmentationModel() {

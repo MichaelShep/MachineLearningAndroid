@@ -3,8 +3,11 @@ package com.example.machinelearningappandroid;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.webkit.WebView;
 import android.widget.Button;
 
 public class SelectionActivity extends AppCompatActivity {

@@ -17,8 +17,11 @@ import androidx.core.content.ContextCompat;
 import android.Manifest;
 import android.content.ActivityNotFoundException;
 import android.content.ContentValues;
+import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -29,6 +32,9 @@ import android.widget.Toast;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Locale;
 import java.util.concurrent.ExecutionException;
@@ -36,6 +42,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class CameraActivity extends AppCompatActivity {
+    public static final String SAVED_IMAGE_NAME = "face.jpg";
+
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
     private ImageCapture imageCapture = null;
     private final int cameraRequestCode = 10;
@@ -76,7 +84,16 @@ public class CameraActivity extends AppCompatActivity {
                     if (result.getResultCode() == RESULT_OK) {
                         Intent resultIntent = result.getData();
                         Intent intent = new Intent(CameraActivity.this, MainActivity.class);
-                        intent.putExtra("imageUri", resultIntent.getDataString());
+                        // Handle different android versions needing to save the file differently
+                        if (resultIntent.getData() == null) {
+                            Bitmap croppedImage = (Bitmap) resultIntent.getExtras().getParcelable("data");
+                            String imagePath = saveToInternalStorage(croppedImage, SAVED_IMAGE_NAME);
+                            intent.putExtra("imagePath", imagePath);
+                            intent.putExtra("fromNewApi", false);
+                        } else {
+                            intent.putExtra("imagePath", resultIntent.getDataString());
+                            intent.putExtra("fromNewApi", true);
+                        }
                         startActivity(intent);
                     }
                 }
@@ -95,6 +112,31 @@ public class CameraActivity extends AppCompatActivity {
             }
         }
     }
+
+    //Saves image to internal storage so that it can then be accessed by other activities
+    private String saveToInternalStorage(Bitmap bitmapImage, String imageName) {
+        ContextWrapper cw = new ContextWrapper(getApplicationContext());
+        File directory = cw.getDir("imageDir", Context.MODE_PRIVATE);
+
+        File imagePath = new File(directory, imageName);
+
+        FileOutputStream fos = null;
+        try {
+            fos = new FileOutputStream(imagePath);
+            bitmapImage.compress(Bitmap.CompressFormat.PNG, 100, fos);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                fos.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return directory.getAbsolutePath();
+    }
+
 
     //Starts and sets up the camera
     private void startCamera() {
