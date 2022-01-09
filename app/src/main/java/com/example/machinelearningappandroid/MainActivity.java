@@ -70,10 +70,10 @@ public class MainActivity extends AppCompatActivity {
             Log.e(APP_TAG, "No image passed to activity");
             finish();
         }
-        inputImageBitmap = loadImageFromStorage(imagePath, fromNewApi);
+        inputImageBitmap = loadImageFromStorage(imagePath);
 
-        //On old API, cropped images are rotated, need to undo this
         if (!fromNewApi) {
+            //Rotate image 270 degrees so it is upright
             Matrix matrix = new Matrix();
             matrix.postRotate(270);
             inputImageBitmap = Bitmap.createBitmap(inputImageBitmap, 0, 0,
@@ -122,16 +122,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     //Loads a saved image from storage
-    private Bitmap loadImageFromStorage(String path, boolean fromNewApi) {
+    private Bitmap loadImageFromStorage(String path) {
         try {
-            Bitmap image = null;
-            if (fromNewApi) {
-                InputStream stream = getContentResolver().openInputStream(Uri.parse(path));
-                image = BitmapFactory.decodeStream(stream);
-            } else {
-                File f = new File(path, CameraActivity.SAVED_IMAGE_NAME);
-                image = BitmapFactory.decodeStream(new FileInputStream(f));
-            }
+            InputStream stream = getContentResolver().openInputStream(Uri.parse(path));
+            Bitmap image = BitmapFactory.decodeStream(stream);
             return image;
         } catch (Exception e) {
             Log.e(APP_TAG, "Error loading image from storage");

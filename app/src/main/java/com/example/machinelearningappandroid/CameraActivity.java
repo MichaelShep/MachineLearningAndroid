@@ -28,10 +28,12 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Log;
+import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.yashoid.instacropper.InstaCropperActivity;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -102,18 +104,11 @@ public class CameraActivity extends AppCompatActivity {
                     if (result.getResultCode() == RESULT_OK) {
                         Intent resultIntent = result.getData();
                         Intent intent = new Intent(CameraActivity.this, MainActivity.class);
-                        // Handle different android versions needing to save the file differently
-                        if (resultIntent.getData() == null) {
-                            Bitmap croppedImage = (Bitmap) resultIntent.getExtras().getParcelable("data");
-                            croppedImage = Bitmap.createScaledBitmap(croppedImage, 512, 512, false);
-                            Log.e(MainActivity.APP_TAG,"Cropped Image Data Width: " + croppedImage.getWidth());
-                            Log.e(MainActivity.APP_TAG,"Cropped Image Data Height: " + croppedImage.getHeight());
-                            String imagePath = saveToInternalStorage(croppedImage, SAVED_IMAGE_NAME);
-                            intent.putExtra("imagePath", imagePath);
-                            intent.putExtra("fromNewApi", false);
-                        } else {
-                            intent.putExtra("imagePath", resultIntent.getDataString());
+                        intent.putExtra("imagePath", resultIntent.getData().toString());
+                        if (Build.VERSION.SDK_INT >= 29) {
                             intent.putExtra("fromNewApi", true);
+                        } else {
+                            intent.putExtra("fromNewApi", false);
                         }
                         startActivity(intent);
                     }
@@ -133,31 +128,6 @@ public class CameraActivity extends AppCompatActivity {
             }
         }
     }
-
-    //Saves image to internal storage so that it can then be accessed by other activities
-    private String saveToInternalStorage(Bitmap bitmapImage, String imageName) {
-        ContextWrapper cw = new ContextWrapper(getApplicationContext());
-        File directory = cw.getDir("imageDir", Context.MODE_PRIVATE);
-
-        File imagePath = new File(directory, imageName);
-
-        FileOutputStream fos = null;
-        try {
-            fos = new FileOutputStream(imagePath);
-            bitmapImage.compress(Bitmap.CompressFormat.PNG, 100, fos);
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                fos.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        return directory.getAbsolutePath();
-    }
-
 
     //Starts and sets up the camera
     private void startCamera() {
@@ -198,9 +168,11 @@ public class CameraActivity extends AppCompatActivity {
             public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
                 String message = "Photo Capture Succeeded: " + fileName + ".jpeg";
                 Toast.makeText(getBaseContext(), message, Toast.LENGTH_SHORT).show();
-                InputStream stream = null;
 
-                performCrop(outputFileResults.getSavedUri());
+                Intent intent = InstaCropperActivity.getIntent(getBaseContext(), outputFileResults.getSavedUri(),
+                        outputFileResults.getSavedUri(), View.MeasureSpec.makeMeasureSpec(512, View.MeasureSpec.EXACTLY),
+                        View.MeasureSpec.makeMeasureSpec(512, View.MeasureSpec.EXACTLY), 100);
+                cropActivityResultLauncher.launch(intent);
             }
 
             @Override
@@ -208,24 +180,6 @@ public class CameraActivity extends AppCompatActivity {
                 Toast.makeText(getBaseContext(), "Image Capture Failed", Toast.LENGTH_SHORT).show();
             }
         });
-    }
-
-    //Crops the image collected from the camera
-    private void performCrop(Uri fileUri) {
-        try {
-            Intent cropIntent = new Intent("com.android.camera.action.CROP");
-            cropIntent.setDataAndType(fileUri, "image/*");
-            cropIntent.putExtra("crop", "true");
-            cropIntent.putExtra("aspectX", 1);
-            cropIntent.putExtra("aspectY", 1);
-            cropIntent.putExtra("outputX", 512);
-            cropIntent.putExtra("outputY", 512);
-            cropIntent.putExtra("scale", true);
-            cropIntent.putExtra("return-data", true);
-            cropActivityResultLauncher.launch(cropIntent);
-        } catch (ActivityNotFoundException e) {
-            Toast.makeText(this, "This device does not support the crop action!", Toast.LENGTH_SHORT).show();
-        }
     }
 
     public void onDestroy() {
