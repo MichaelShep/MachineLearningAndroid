@@ -55,6 +55,9 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         setTitle("Run Segmentation Model");
 
+        //Add back button in appBar so that we can go back to camera view
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+
         //Get the file name of the image saved in the CameraView
         Bundle extras = getIntent().getExtras();
         String imagePath = "";

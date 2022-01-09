@@ -58,6 +58,9 @@ public class CameraActivity extends AppCompatActivity {
         setContentView(R.layout.activity_camera);
         setTitle("Take Photo of Face");
 
+        //Add back button in appBar so that we can go back to selection view
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+
         cameraProviderFuture = ProcessCameraProvider.getInstance(this);
 
         imageCapture = new ImageCapture.Builder()
