@@ -5,6 +5,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -70,6 +71,15 @@ public class MainActivity extends AppCompatActivity {
             finish();
         }
         inputImageBitmap = loadImageFromStorage(imagePath, fromNewApi);
+
+        //On old API, cropped images are rotated, need to undo this
+        if (!fromNewApi) {
+            Matrix matrix = new Matrix();
+            matrix.postRotate(270);
+            inputImageBitmap = Bitmap.createBitmap(inputImageBitmap, 0, 0,
+                    inputImageBitmap.getWidth(), inputImageBitmap.getHeight(), matrix,
+                    true);
+        }
 
         //Load PyTorch Model into Module and input image as bitmap
         try {
@@ -145,6 +155,7 @@ public class MainActivity extends AppCompatActivity {
 
         //Process output into correct image format
         final float[] outputValues = outTensor.getDataAsFloatArray();
+        Log.e(APP_TAG, outputValues.toString());
         imageOutputs = new int[outputValues.length];
         for (int i = 0; i < outputValues.length; i++) {
             if (outputValues[i] > THRESHOLD) {

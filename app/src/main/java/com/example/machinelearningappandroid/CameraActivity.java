@@ -22,6 +22,7 @@ import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -33,8 +34,10 @@ import android.widget.Toast;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Locale;
 import java.util.concurrent.ExecutionException;
@@ -50,6 +53,7 @@ public class CameraActivity extends AppCompatActivity {
     private ExecutorService cameraExecutor;
 
     private ActivityResultLauncher<Intent> cropActivityResultLauncher;
+    private CameraSelector cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA;
 
     @RequiresApi(api = Build.VERSION_CODES.R)
     @Override
@@ -78,6 +82,17 @@ public class CameraActivity extends AppCompatActivity {
         final Button cameraCaptureButton = findViewById(R.id.camera_capture_button);
         cameraCaptureButton.setOnClickListener(v -> takePhoto());
 
+        //Make switch button allow the user to select which camera they want to use
+        final Button switchCameraButton = findViewById(R.id.switch_button);
+        switchCameraButton.setOnClickListener(v -> {
+            if (cameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) {
+                cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA;
+            } else {
+                cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
+            }
+            startCamera();
+        });
+
         cameraExecutor = Executors.newSingleThreadExecutor();
 
         //Setup code that will be run when the crop intent is finished running
@@ -90,6 +105,9 @@ public class CameraActivity extends AppCompatActivity {
                         // Handle different android versions needing to save the file differently
                         if (resultIntent.getData() == null) {
                             Bitmap croppedImage = (Bitmap) resultIntent.getExtras().getParcelable("data");
+                            croppedImage = Bitmap.createScaledBitmap(croppedImage, 512, 512, false);
+                            Log.e(MainActivity.APP_TAG,"Cropped Image Data Width: " + croppedImage.getWidth());
+                            Log.e(MainActivity.APP_TAG,"Cropped Image Data Height: " + croppedImage.getHeight());
                             String imagePath = saveToInternalStorage(croppedImage, SAVED_IMAGE_NAME);
                             intent.putExtra("imagePath", imagePath);
                             intent.putExtra("fromNewApi", false);
@@ -146,6 +164,8 @@ public class CameraActivity extends AppCompatActivity {
         cameraProviderFuture.addListener(() -> {
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+                //Unbind all previous binding before setting up new one
+                cameraProvider.unbindAll();
                 bindCameraToPreview(cameraProvider);
             } catch (ExecutionException | InterruptedException e) {
                 e.printStackTrace();
@@ -156,9 +176,6 @@ public class CameraActivity extends AppCompatActivity {
     //Adds a camera object into the preview
     private void bindCameraToPreview(@NonNull ProcessCameraProvider cameraProvider) {
         Preview preview = new Preview.Builder().build();
-        CameraSelector cameraSelector = new CameraSelector.Builder()
-                .requireLensFacing(CameraSelector.LENS_FACING_BACK)
-                .build();
         PreviewView previewView = findViewById(R.id.previewView);
         preview.setSurfaceProvider(previewView.getSurfaceProvider());
 
@@ -181,6 +198,7 @@ public class CameraActivity extends AppCompatActivity {
             public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
                 String message = "Photo Capture Succeeded: " + fileName + ".jpeg";
                 Toast.makeText(getBaseContext(), message, Toast.LENGTH_SHORT).show();
+                InputStream stream = null;
 
                 performCrop(outputFileResults.getSavedUri());
             }
@@ -202,6 +220,7 @@ public class CameraActivity extends AppCompatActivity {
             cropIntent.putExtra("aspectY", 1);
             cropIntent.putExtra("outputX", 512);
             cropIntent.putExtra("outputY", 512);
+            cropIntent.putExtra("scale", true);
             cropIntent.putExtra("return-data", true);
             cropActivityResultLauncher.launch(cropIntent);
         } catch (ActivityNotFoundException e) {

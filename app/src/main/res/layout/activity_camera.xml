@@ -12,6 +12,15 @@
         android:layout_height="match_parent" />
 
     <Button
+        android:id="@+id/switch_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:text="Switch"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <Button
         android:id="@+id/camera_capture_button"
         android:layout_width="100dp"
         android:layout_height="100dp"
