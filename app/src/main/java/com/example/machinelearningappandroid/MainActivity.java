@@ -60,6 +60,8 @@ public class MainActivity extends AppCompatActivity {
     private Bitmap inputImageBitmap = null;
     private Module module = null;
     private int[] imageOutputs;
+    private ArrayList<String> multiModelAttributes = new ArrayList<>();
+    private boolean multiModelSegmentationFinished = false;
     private int currentMaskIndex = 0;
     private ModelType modelType = ModelType.SEGMENTATION;
 
@@ -144,20 +146,35 @@ public class MainActivity extends AppCompatActivity {
         });
 
         performButton.setOnClickListener(v -> {
-            if (this.modelType == ModelType.SEGMENTATION) {
+            if (this.modelType == ModelType.SEGMENTATION || (this.modelType == ModelType.JOINT && !this.multiModelSegmentationFinished)) {
                 if (currentMaskIndex == 0) {
                     Toast.makeText(getBaseContext(), R.string.performing, Toast.LENGTH_SHORT).show();
-                    runSegmentationModel();
+                    if (this.modelType == ModelType.SEGMENTATION) {
+                        runSegmentationModel();
+                    } else {
+                        runJointModel();
+                    }
                 }
                 imageView.setImageBitmap(getSegmentationMask());
                 performButton.setText(getString(R.string.view_next));
                 imageNameText.setText("Viewing Mask: " + MASK_NAMES[currentMaskIndex]);
                 currentMaskIndex++;
                 if (currentMaskIndex == NUM_OUTPUT_MASKS) {
-                    performButton.setEnabled(false);
+                    if (this.modelType == ModelType.SEGMENTATION) {
+                        performButton.setEnabled(false);
+                    }
+                    else {
+                        performButton.setText("View Attributes Information");
+                        this.multiModelSegmentationFinished = true;
+                    }
                 }
             }
-            else if (this.modelType == ModelType.ATTRIBUTES) {
+            else if(this.modelType == ModelType.JOINT && this.multiModelSegmentationFinished) {
+                Intent intent = new Intent(MainActivity.this, AttributesActivity.class);
+                intent.putExtra("faceAttributes", this.multiModelAttributes);
+                startActivity(intent);
+            }
+            else {
                 runAttributesModel();
             }
         });
@@ -188,18 +205,7 @@ public class MainActivity extends AppCompatActivity {
 
         //Perform forward pass through the network
         final Tensor outTensor = module.forward(IValue.from(inputTensor)).toTensor();
-
-        //Process output into correct image format
-        final float[] outputValues = outTensor.getDataAsFloatArray();
-        Log.e(APP_TAG, outputValues.toString());
-        imageOutputs = new int[outputValues.length];
-        for (int i = 0; i < outputValues.length; i++) {
-            if (outputValues[i] > SEGMENTATION_THRESHOLD) {
-                imageOutputs[i] = 0xFFFFFFFF;
-            } else {
-                imageOutputs[i] = 0xFF0000FF;
-            }
-        }
+        getSegmentationOutput(outTensor);
     }
 
     //Runs the attributes model on the input image
@@ -211,18 +217,52 @@ public class MainActivity extends AppCompatActivity {
 
         //Perform forward pass through the network
         final Tensor outTensor = module.forward(IValue.from(inputTensor)).toTensor();
-        ArrayList<String> faceAttributes = new ArrayList<String>();
-
-        final float[] outputValues = outTensor.getDataAsFloatArray();
-        for (int i = 0; i < outputValues.length; i++) {
-            if (outputValues[i] > ATTRIBUTES_THRESHOLD) {
-                faceAttributes.add(this.ATTRIBUTES[i]);
-            }
-        }
+        ArrayList<String> faceAttributes = this.getAttributesOutput(outTensor);
 
         Intent intent = new Intent(MainActivity.this, AttributesActivity.class);
         intent.putExtra("faceAttributes", faceAttributes);
         startActivity(intent);
+    }
+
+    private void runJointModel() {
+        //Set up the input tensor
+        final Tensor inputTensor = TensorImageUtils.bitmapToFloat32Tensor(inputImageBitmap,
+                TensorImageUtils.TORCHVISION_NORM_MEAN_RGB,
+                TensorImageUtils.TORCHVISION_NORM_STD_RGB);
+
+        //Perform forward pass through the network
+        //Get both the segmentation and attributes results from the joint model
+        final IValue[] output = module.forward(IValue.from(inputTensor)).toTuple();
+        final Tensor segmentationOutput = output[0].toTensor();
+        final Tensor attributesOutput = output[1].toTensor();
+
+        //Get both segmentation and attributes outputs
+        getSegmentationOutput(segmentationOutput);
+        this.multiModelAttributes = this.getAttributesOutput(attributesOutput);
+    }
+
+    private void getSegmentationOutput(Tensor segmentationTensor) {
+        final float[] segmentationValues = segmentationTensor.getDataAsFloatArray();
+        imageOutputs = new int[segmentationValues.length];
+        for (int i = 0; i < segmentationValues.length; i++) {
+            if (segmentationValues[i] > SEGMENTATION_THRESHOLD) {
+                imageOutputs[i] = 0xFFFFFFFF;
+            } else {
+                imageOutputs[i] = 0xFF0000FF;
+            }
+        }
+    }
+
+    //Converts the tensor output of the attributes model into a list of string containing the attributes mappings
+    private ArrayList<String> getAttributesOutput(Tensor attributesTensor) {
+        ArrayList<String> outputs = new ArrayList<String>();
+        final float[] attributesValues = attributesTensor.getDataAsFloatArray();
+        for (int i = 0; i < attributesValues.length; i++) {
+            if (attributesValues[i] > ATTRIBUTES_THRESHOLD) {
+                outputs.add(this.ATTRIBUTES[i]);
+            }
+        }
+        return outputs;
     }
 
     //Gets one of the output masks for the input image based on the current mask index variable
