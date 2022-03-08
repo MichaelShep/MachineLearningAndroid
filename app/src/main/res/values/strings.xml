@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">MachineLearningAppAndroid</string>
     <string name="image_view">Image View</string>
-    <string name="segment">Segment</string>
+    <string name="perform_model">Perform Model</string>
     <string name="view_next">View Next Mask</string>
     <string name="run_model">Running the model...</string>
     <string name="restart">Restart</string>
@@ -9,5 +9,5 @@
     <string name="segmentation_model_selection">Go To Segmentation Model</string>
     <string name="attributes_model_selection">Go To Attributes Model</string>
     <string name="joint_model_selection">Go To Joint Model</string>
-    <string name="performing_segmentation">Performing Segmentation...</string>
+    <string name="performing">Performing...</string>
 </resources>

@@ -20,13 +20,13 @@
         app:layout_constraintTop_toBottomOf="@+id/imageName" />
 
     <Button
-        android:id="@+id/segmentButton"
+        android:id="@+id/performButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="156dp"
         android:layout_marginEnd="157dp"
         android:layout_marginBottom="10dp"
-        android:text="@string/segment"
+        android:text="@string/perform_model"
         android:textAllCaps="false"
         app:layout_constraintBottom_toTopOf="@+id/restartButton"
         app:layout_constraintEnd_toEndOf="parent"

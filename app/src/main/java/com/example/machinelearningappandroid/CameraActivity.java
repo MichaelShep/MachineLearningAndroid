@@ -56,6 +56,7 @@ public class CameraActivity extends AppCompatActivity {
 
     private ActivityResultLauncher<Intent> cropActivityResultLauncher;
     private CameraSelector cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA;
+    private String modelTypeString = "";
 
     @RequiresApi(api = Build.VERSION_CODES.R)
     @Override
@@ -63,6 +64,11 @@ public class CameraActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera);
         setTitle("Take Photo of Face");
+
+        Bundle extras = getIntent().getExtras();
+        if(extras != null) {
+            modelTypeString = extras.getString("modelType");
+        }
 
         //Add back button in appBar so that we can go back to selection view
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
@@ -105,6 +111,7 @@ public class CameraActivity extends AppCompatActivity {
                         Intent resultIntent = result.getData();
                         Intent intent = new Intent(CameraActivity.this, MainActivity.class);
                         intent.putExtra("imagePath", resultIntent.getData().toString());
+                        intent.putExtra("modelType", this.modelTypeString);
                         if (Build.VERSION.SDK_INT >= 29) {
                             intent.putExtra("fromNewApi", true);
                         } else {

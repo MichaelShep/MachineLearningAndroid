@@ -49,12 +49,12 @@ public class MainActivity extends AppCompatActivity {
     private Module module = null;
     private int[] imageOutputs;
     private int currentMaskIndex = 0;
+    private ModelType modelType = ModelType.SEGMENTATION;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        setTitle("Run Segmentation Model");
 
         //Add back button in appBar so that we can go back to camera view
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
@@ -66,11 +66,25 @@ public class MainActivity extends AppCompatActivity {
         if (extras != null) {
             imagePath = extras.getString("imagePath");
             fromNewApi = extras.getBoolean("fromNewApi");
+            String modelTypeString = extras.getString("modelType");
+            this.modelType = ModelType.valueOf(modelTypeString);
         }else {
             Log.e(APP_TAG, "No image passed to activity");
             finish();
         }
         inputImageBitmap = loadImageFromStorage(imagePath);
+
+        //Set the title of the page based on which model we are using
+        switch(this.modelType) {
+            case SEGMENTATION:
+                setTitle("Run Segmentation Model");
+                break;
+            case ATTRIBUTES:
+                setTitle("Run Attributes Model");
+                break;
+            case JOINT:
+                setTitle("Run Joint Model");
+        }
 
         if (!fromNewApi) {
             //Rotate image 270 degrees so it is upright
@@ -83,8 +97,19 @@ public class MainActivity extends AppCompatActivity {
 
         //Load PyTorch Model into Module and input image as bitmap
         try {
-            module = LiteModuleLoader.load(assetFilePath(this,
-                    "segmentation_model.ptl"));
+            switch(this.modelType){
+                case SEGMENTATION:
+                    module = LiteModuleLoader.load(assetFilePath(this,
+                            "segmentation_model.ptl"));
+                    break;
+                case ATTRIBUTES:
+                    module = LiteModuleLoader.load(assetFilePath(this,
+                            "attributes_model.ptl"));
+                    break;
+                case JOINT:
+                    module = LiteModuleLoader.load(assetFilePath(this,
+                            "multi_model.ptl"));
+            }
         } catch (IOException e) {
             Log.e(APP_TAG, "Error loading PyTorch module", e);
             finish();
@@ -96,12 +121,12 @@ public class MainActivity extends AppCompatActivity {
 
         //Add functionality to the restart and segment buttons
         final Button restartButton = findViewById(R.id.restartButton);
-        final Button segmentButton = findViewById(R.id.segmentButton);
+        final Button segmentButton = findViewById(R.id.performButton);
         final TextView imageNameText = findViewById(R.id.imageName);
 
         restartButton.setOnClickListener(v -> {
             segmentButton.setEnabled(true);
-            segmentButton.setText(R.string.segment);
+            segmentButton.setText(R.string.perform_model);
             imageView.setImageBitmap(inputImageBitmap);
             currentMaskIndex = 0;
         });

@@ -25,11 +25,22 @@ public class SelectionActivity extends AppCompatActivity {
         segmentationSelectionButton.setOnClickListener(v -> {
             //Setup intent to take us to the Segmentation model activity
             Intent intent = new Intent(SelectionActivity.this, CameraActivity.class);
+            intent.putExtra("modelType", "SEGMENTATION");
             startActivity(intent);
         });
 
-        attributesSelectionButton.setOnClickListener(v -> Log.println(Log.INFO, MainActivity.APP_TAG, "Attributes Model Selected"));
+        attributesSelectionButton.setOnClickListener(v -> {
+            //Setup intent to take us to the Segmentation model activity
+            Intent intent = new Intent(SelectionActivity.this, CameraActivity.class);
+            intent.putExtra("modelType", "ATTRIBUTES");
+            startActivity(intent);
+        });
 
-        jointSelectionButton.setOnClickListener(v -> Log.println(Log.INFO, MainActivity.APP_TAG, "Joint Model Selected"));
+        jointSelectionButton.setOnClickListener(v -> {
+            //Setup intent to take us to the Segmentation model activity
+            Intent intent = new Intent(SelectionActivity.this, CameraActivity.class);
+            intent.putExtra("modelType", "JOINT");
+            startActivity(intent);
+        });
     }
 }
