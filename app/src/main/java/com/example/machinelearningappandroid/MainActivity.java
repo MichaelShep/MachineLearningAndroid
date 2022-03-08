@@ -3,6 +3,7 @@ package com.example.machinelearningappandroid;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
@@ -30,6 +31,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -38,11 +41,20 @@ import javax.crypto.Mac;
 public class MainActivity extends AppCompatActivity {
     public static final int PIXELS_IN_IMAGE = 512 * 512;
     public static final String APP_TAG = "MachineLearningApp";
-    public static final float THRESHOLD = 0.8f;
+    public static final float SEGMENTATION_THRESHOLD = 0.8f;
+    public static final float ATTRIBUTES_THRESHOLD = 0.5f;
     public static final int NUM_OUTPUT_MASKS = 18;
     public static final String[] MASK_NAMES = new String[] {
             "Skin", "Nose", "Glasses", "Left Eye", "Right Eye", "Left Brow", "Right Brow", "Left Ear", "Right Ear",
             "Mouth", "Upper Lip", "Lower Lip", "Hair", "Hat", "Ear Ring", "Neck Lower", "Neck", "Cloth"
+    };
+    public static final String[] ATTRIBUTES = new String[] {
+            "5 O'clock Shadow", "Arched Eyebrows", "Attractive", "Bags Under Eyes", "Bald", "Bangs", "Big Lips",
+            "Big Nose", "Black Hair", "Blond Hair", "Blurry", "Brown Hair", "Bushy Eyebrows", "Chubby", "Double Chin",
+            "Eyeglasses", "Goatee", "Gray Hair", "Heavy Makeup", "High Cheekbones", "Male", "Mouth Slightly Open",
+            "Mustache", "Narrow Eyes", "No Beard", "Oval Face", "Pale Skin", "Pointy Nose", "Receding Hairline",
+            "Rosy Cheeks", "Sideburns", "Smiling", "Straight Hair", "Wavy Hair", "Wearing Earrings", "Wearing Hat",
+            "Wearing Lipstick", "Wearing Necklace", "Wearing Necktie", "Young"
     };
 
     private Bitmap inputImageBitmap = null;
@@ -121,27 +133,32 @@ public class MainActivity extends AppCompatActivity {
 
         //Add functionality to the restart and segment buttons
         final Button restartButton = findViewById(R.id.restartButton);
-        final Button segmentButton = findViewById(R.id.performButton);
+        final Button performButton = findViewById(R.id.performButton);
         final TextView imageNameText = findViewById(R.id.imageName);
 
         restartButton.setOnClickListener(v -> {
-            segmentButton.setEnabled(true);
-            segmentButton.setText(R.string.perform_model);
+            performButton.setEnabled(true);
+            performButton.setText(R.string.perform_model);
             imageView.setImageBitmap(inputImageBitmap);
             currentMaskIndex = 0;
         });
 
-        segmentButton.setOnClickListener(v -> {
-            if (currentMaskIndex == 0) {
-                Toast.makeText(getBaseContext(), "Performing Segmentation...", Toast.LENGTH_SHORT).show();
-                runSegmentationModel();
+        performButton.setOnClickListener(v -> {
+            if (this.modelType == ModelType.SEGMENTATION) {
+                if (currentMaskIndex == 0) {
+                    Toast.makeText(getBaseContext(), R.string.performing, Toast.LENGTH_SHORT).show();
+                    runSegmentationModel();
+                }
+                imageView.setImageBitmap(getSegmentationMask());
+                performButton.setText(getString(R.string.view_next));
+                imageNameText.setText("Viewing Mask: " + MASK_NAMES[currentMaskIndex]);
+                currentMaskIndex++;
+                if (currentMaskIndex == NUM_OUTPUT_MASKS) {
+                    performButton.setEnabled(false);
+                }
             }
-            imageView.setImageBitmap(getSegmentationMask());
-            segmentButton.setText(getString(R.string.view_next));
-            imageNameText.setText("Viewing Mask: " + MASK_NAMES[currentMaskIndex]);
-            currentMaskIndex++;
-            if(currentMaskIndex == NUM_OUTPUT_MASKS) {
-                segmentButton.setEnabled(false);
+            else if (this.modelType == ModelType.ATTRIBUTES) {
+                runAttributesModel();
             }
         });
     }
@@ -177,12 +194,35 @@ public class MainActivity extends AppCompatActivity {
         Log.e(APP_TAG, outputValues.toString());
         imageOutputs = new int[outputValues.length];
         for (int i = 0; i < outputValues.length; i++) {
-            if (outputValues[i] > THRESHOLD) {
+            if (outputValues[i] > SEGMENTATION_THRESHOLD) {
                 imageOutputs[i] = 0xFFFFFFFF;
             } else {
                 imageOutputs[i] = 0xFF0000FF;
             }
         }
+    }
+
+    //Runs the attributes model on the input image
+    private void runAttributesModel() {
+        //Set up the input tensor
+        final Tensor inputTensor = TensorImageUtils.bitmapToFloat32Tensor(inputImageBitmap,
+                TensorImageUtils.TORCHVISION_NORM_MEAN_RGB,
+                TensorImageUtils.TORCHVISION_NORM_STD_RGB);
+
+        //Perform forward pass through the network
+        final Tensor outTensor = module.forward(IValue.from(inputTensor)).toTensor();
+        ArrayList<String> faceAttributes = new ArrayList<String>();
+
+        final float[] outputValues = outTensor.getDataAsFloatArray();
+        for (int i = 0; i < outputValues.length; i++) {
+            if (outputValues[i] > ATTRIBUTES_THRESHOLD) {
+                faceAttributes.add(this.ATTRIBUTES[i]);
+            }
+        }
+
+        Intent intent = new Intent(MainActivity.this, AttributesActivity.class);
+        intent.putExtra("faceAttributes", faceAttributes);
+        startActivity(intent);
     }
 
     //Gets one of the output masks for the input image based on the current mask index variable
